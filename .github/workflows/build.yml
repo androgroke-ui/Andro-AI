@@ -1,0 +1,71 @@
+name: Build and Verify
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Detect and build project
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Detect supported project
+        id: detect
+        shell: bash
+        run: |
+          if [ -f package.json ]; then echo "node=true" >> "$GITHUB_OUTPUT"; else echo "node=false" >> "$GITHUB_OUTPUT"; fi
+          if [ -f gradlew ]; then echo "android=true" >> "$GITHUB_OUTPUT"; else echo "android=false" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Set up Node.js
+        if: steps.detect.outputs.node == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Node dependencies
+        if: steps.detect.outputs.node == 'true'
+        shell: bash
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+
+      - name: Run available Node tests
+        if: steps.detect.outputs.node == 'true'
+        run: npm test --if-present
+
+      - name: Build Node project when a build script exists
+        if: steps.detect.outputs.node == 'true'
+        run: npm run build --if-present
+
+      - name: Set up Java for Android
+        if: steps.detect.outputs.android == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Build and test Android project
+        if: steps.detect.outputs.android == 'true'
+        shell: bash
+        run: |
+          chmod +x ./gradlew
+          ./gradlew test assembleDebug
+
+      - name: Stop if no buildable project is present
+        if: steps.detect.outputs.node != 'true' && steps.detect.outputs.android != 'true'
+        shell: bash
+        run: |
+          echo "::error::No supported build configuration found. Add package.json for a Node.js app or gradlew plus Android Gradle project files to build an Android APK."
+          exit 1
