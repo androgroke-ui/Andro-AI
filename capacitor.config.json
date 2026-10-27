@@ -1,0 +1,12 @@
+{
+  "appId": "com.androgrokeui.androai",
+  "appName": "Andro AI",
+  "webDir": "www",
+  "server": {
+    "url": "https://andro-ai-81bhtj.v2.appdeploy.ai/",
+    "cleartext": false,
+    "allowNavigation": [
+      "andro-ai-81bhtj.v2.appdeploy.ai"
+    ]
+  }
+}
